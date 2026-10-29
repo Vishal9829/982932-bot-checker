@@ -111,7 +111,8 @@ async function runBot() {
     console.error('   Export your cookies from the logged-in MFP page and commit cookies.json to the repo.');
   }
 
-  let cooldownUntil = 0;
+  let checkCount = 0;
+  const STATUS_REPORT_INTERVAL = 12; // Report every 12 checks (9 minutes)
 
   while (true) {
     const now = Date.now();
@@ -131,6 +132,16 @@ async function runBot() {
       // Check whether the "No Giveaways Available" text is still on the page
       const pageText = await page.evaluate(() => document.body.innerText);
       const noGiveawaysVisible = pageText.includes(NO_GIVEAWAY_TEXT);
+
+      // 📢 Send status update periodically (every STATUS_REPORT_INTERVAL checks)
+      checkCount++;
+      if (checkCount >= STATUS_REPORT_INTERVAL) {
+        const statusMsg = noGiveawaysVisible
+          ? `📭 **Status: No Giveaways Available**\n\nBot is running correctly. Cloudflare bypass: functioning. Session: valid. Scanning page...\n\nNext check in 45 seconds.`
+          : `🚨 **Status: Giveaway Panel Active**\n\nMFP page changed! Cloudflare bypass: functioning. Session: valid. Scanning for Enter/Claim button...\n\nNext check in 45 seconds.`;
+        await sendAlert(statusMsg);
+        checkCount = 0;
+      }
 
       if (noGiveawaysVisible) {
         console.log('📭 Status: No Giveaways Available. Checking again soon...');
@@ -165,6 +176,18 @@ async function runBot() {
       }
     } catch (err) {
       console.error('❌ Loop error:', err.message);
+      // Also send error alert to Telegram
+      if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
+        try {
+          await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: `⚠️ **Bot Error**\n\n${err.message}\n\nBot will continue running.` }),
+          });
+        } catch (err2) {
+          console.error('Failed to send error alert:', err2.message);
+        }
+      }
     }
 
     await sleep(CHECK_INTERVAL_MS);
