@@ -93,7 +93,16 @@ async function runBot() {
     try {
       const cookies = JSON.parse(fs.readFileSync(cookiesPath, 'utf8'));
       await page.setCookie(...cookies);
-      console.log('🔒 Session cookies injected successfully.');
+
+    // ✅ Cookie validity check - check expiration dates
+    const now = Date.now() / 1000;
+    const expiredCookies = cookies.filter(cookie => cookie.expirationDate && cookie.expirationDate * 1000 < now);
+    if (expiredCookies.length > 0) {
+      console.warn('⚠️ Cookie validity check: Found', expiredCookies.length, 'expired cookie(s).');
+      await sendAlert(`⚠️ **Cookie Warning**\n\nFound ${expiredCookies.length} expired cookie(s).\n\nSome functionality may be limited.\n\nCheck https://myfundedperpetuals.com manually.`);
+    } else {
+      console.log('🔒 Session cookies injected successfully - all cookies valid.');
+    }
     } catch (err) {
       console.error('❌ Failed to parse cookies.json:', err.message);
     }
@@ -170,6 +179,30 @@ function sleep(ms) {
 app.listen(PORT, () => {
   console.log(`🌐 Server listening on port ${PORT}`);
   console.log(`📡 Self-ping loop started (every 3 min).`);
+
+  // 🤖 Send startup notification to Telegram
+  if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
+    const startupMsg = `🚀 **MFP Giveaway Bot Started**\n\nService is online on port ${PORT}.\n🕵️ Monitoring: ${GIVEAWAY_PAGE}\n📅 Check time: ${new Date().toLocaleString()}`;
+    try {
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: startupMsg }),
+      });
+      console.log('[startup] Telegram notification sent.');
+    } catch (err) {
+      console.error('[startup] Failed to send Telegram notification:', err.message);
+    }
+  }
+
   startSelfPingLoop();
-  runBot().catch((err) => console.error('💥 Bot crashed:', err));
+  runBot().catch((err) => {
+    console.error('💥 Bot crashed:', err);
+    // 📝 Log crash to file
+    const fs = require('fs');
+    const logMsg = `[${new Date().toISOString()}] BOT CRASH: ${err.message}\n`;
+    fs.appendFile('bot_crash.log', logMsg, (err) => {
+      if (err) console.error('Failed to write crash log:', err);
+    });
+  });
 });
