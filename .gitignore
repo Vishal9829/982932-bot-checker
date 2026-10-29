@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables
+.env*
+.secrets
+
+# Cookies and sensitive data
+cookies.json
+
+# Logs
+*.log
+
+# Runtime artifacts
+dist/
+build/
+
+# OS generated files
+.DS_Store
+.COOKIES
+
+# Docker
+.dockerignore
