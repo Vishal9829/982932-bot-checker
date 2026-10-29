@@ -194,6 +194,28 @@ async function initializeBot() {
       console.error('[startup] Failed to send Telegram notification:', err.message);
     }
   }
+
+  // ⏳ Wait for Lightpanda to be ready (max 15 seconds)
+  console.log('⏳ Waiting for Lightpanda browser to initialize...');
+  let lightpandaReady = false;
+  let checks = 0;
+  while (checks < 15 && !lightpandaReady) {
+    try {
+      const ws = await fetch('ws://127.0.0.1:9222', { method: 'HEAD' });
+      lightpandaReady = ws.ok || ws.status === 101;
+    } catch (err) {
+      // WebSocket not ready yet, continue waiting
+    }
+    checks++;
+    if (!lightpandaReady) {
+      await sleep(1000); // wait 1 second before next check
+    }
+  }
+  if (!lightpandaReady) {
+    console.warn('⚠️ Lightpanda not ready after 15 seconds, but continuing...');
+  } else {
+    console.log('✅ Lightpanda is ready!');
+  }
 }
 
 app.listen(PORT, () => {
