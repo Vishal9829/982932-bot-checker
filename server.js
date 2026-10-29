@@ -176,7 +176,7 @@ function sleep(ms) {
 }
 
 // ---------- Boot ----------
-app.listen(PORT, () => {
+async function initializeBot() {
   console.log(`🌐 Server listening on port ${PORT}`);
   console.log(`📡 Self-ping loop started (every 3 min).`);
 
@@ -194,7 +194,10 @@ app.listen(PORT, () => {
       console.error('[startup] Failed to send Telegram notification:', err.message);
     }
   }
+}
 
+app.listen(PORT, () => {
+  initializeBot().catch((err) => console.error('Failed to initialize bot:', err));
   startSelfPingLoop();
   runBot().catch((err) => {
     console.error('💥 Bot crashed:', err);
